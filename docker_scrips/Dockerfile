@@ -54,6 +54,6 @@ RUN curl -sLo ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py39
  && rm ~/miniconda.sh \
  && conda clean -ya
 
-ENV HOME=/home/$DOCKER_NAME
+RUN cd ../../app
 
 CMD jupyter notebook --allow-root --ip='0.0.0.0' --port=8890 --NotebookApp.token='' --NotebookApp.password=''
