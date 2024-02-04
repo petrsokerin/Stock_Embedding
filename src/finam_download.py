@@ -16,10 +16,8 @@ def get_assets_timestemps_codes():
 
 def get_piece(asset, timeframe, first, last, path) :
 
-    fout = open(path, "a")
     assets, timeframes = get_assets_timestemps_codes()
 
-    
     try :
 
         domain = "http://export.finam.ru/"
@@ -64,24 +62,18 @@ def get_piece(asset, timeframe, first, last, path) :
         for line in text:
             lines.append(line.strip().decode("utf-8") + "\n")
 
-        for line in reversed(lines):
-            fout.write(line)	
+        if len(lines) != 0:
+            with open(path, "a") as f:
+                for line in reversed(lines):
+                    f.write(line)	
 
     except:
         print("Exception: ", sys.exc_info()[0])
         raise
 
-    finally:
-        fout.close()
-
 def get(asset, timeframe, path) :
 
     try:
-        
-        fout = open(path, "w")
-        
-        fout.close()
-
         total = 365 * 1
         batch = 365 * 1
 

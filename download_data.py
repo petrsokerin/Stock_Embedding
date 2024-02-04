@@ -17,6 +17,7 @@ def get_all_sp500_data():
     for ticker in tqdm(sp500_tickers):
         try:
             get(ticker, 'M1', f'data/ticker_data/{ticker}.csv')
+
         except:
             print(f'Error witn ticker {ticker}')
             failed_list.append(ticker)
