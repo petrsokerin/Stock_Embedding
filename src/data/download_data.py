@@ -1,7 +1,33 @@
+from typing import List
+import os
+
+import yaml
 import pandas as pd
 from tqdm import tqdm
+import yfinance as yf
 
-from src.finam_download import get
+from .finam_download import get
+
+
+def get_sectors(
+        tickers: List[str], 
+        save:bool=False, 
+        save_path: str='configs/ticker_sectors.yaml'
+) -> List[str]:
+    sectors_dict = dict()
+
+    for ticker in tqdm(tickers):
+        try:
+            sectors_dict[ticker] = yf.Ticker(ticker).info['sector']
+        except:
+            print(f"Can't get sector for ticker {ticker}")
+    
+    if save:
+        with open(save_path, 'w') as f:
+            yaml.dump(sectors_dict, f, default_flow_style=False)
+
+    return sectors_dict
+
 
 def get_tickers_sp500():
     table = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
