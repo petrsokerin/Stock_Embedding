@@ -97,7 +97,8 @@ def preprocessing(
     
     mask_lower = data['Datetime'].dt.date >= pd.Timestamp(start_date).date()
     mask_upper = data['Datetime'].dt.date < pd.Timestamp(end_date).date()
-    data = data[(mask_lower) & (mask_upper)]
+    mask_tickers = data['Stock'].isin(tickers_save)
+    data = data[(mask_lower) & (mask_upper) & (mask_tickers)]
     
     res = dict()
 
