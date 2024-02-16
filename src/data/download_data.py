@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 import yfinance as yf
 
-from .finam_download import get
+from finam_download import get
 
 
 def get_sectors(
