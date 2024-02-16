@@ -47,9 +47,20 @@ def collect_data_in_one_file(
     df.to_csv(save_path)
 
 
-def read_data(path: str) -> pd.DataFrame:
+def read_data(path: str, clean: bool=True) -> pd.DataFrame:
     df = pd.read_csv(path, index_col = 0)
     df['Datetime'] = pd.to_datetime(df['Datetime'])
+    
+    df['Date'] = df['Datetime'].dt.date
+    df['Day_week'] = df['Datetime'].dt.day_name()
+    df['Time'] = df['Datetime'].dt.time
+
+    if clean:
+        df = df[df['Day_week'] != 'Saturday']
+        df = df[
+            (df['Time'] >= pd.to_datetime('17:30:00').time()) & \
+            (df['Time'] < pd.to_datetime('22:59:00').time())
+        ]
     return df
 
 
