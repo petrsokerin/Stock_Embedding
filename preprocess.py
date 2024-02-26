@@ -3,12 +3,14 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 import pandas as pd
+import numpy as np
 import yaml
 
-from src.data.preprocessing import read_data, preprocessing, data_to_np_tensor
+from src.data.preprocessing import read_data, preprocessing, data_to_np_tensor, save_config
 
+CONFIG_NAME='preprocess_config'
 
-@hydra.main(config_path='configs', config_name='preprocess_config', version_base=None)
+@hydra.main(config_path='configs', config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig):
     
     df = read_data('data/all_tickers.csv')
@@ -61,8 +63,15 @@ def main(cfg: DictConfig):
     end_date = test_end,
     tickers_save = stocks
 )
-    print(test_data)
-    return test_data, train_data
+    
+    if cfg['save']:
+        df['Stock'].unique().tofile('data_prep/stocks.csv', sep=';')
+        data_to_np_tensor(train_data).tofile('data_prep/train.csv', sep=';')
+        data_to_np_tensor(test_data).tofile('data_prep/test.csv', sep=';')
+        save_config(CONFIG_NAME)
+        
+        
+
 
 if __name__ == "__main__":
     main()

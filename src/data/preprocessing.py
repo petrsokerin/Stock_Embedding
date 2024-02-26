@@ -1,4 +1,6 @@
 import os
+import shutil
+
 from typing import NoReturn, List, Dict
 
 import pandas as pd
@@ -121,6 +123,9 @@ def data_to_np_tensor(data: Dict[str, pd.DataFrame]) -> np.ndarray:
         res[:, :, i] = features.values.T
 
     return res
+
+def save_config(config_name) -> None:
+    shutil.copyfile(f'configs/{config_name}.yaml', 'data_prep/'+config_name+'.yaml')
 
     
     
