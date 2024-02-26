@@ -69,9 +69,6 @@ def main(cfg: DictConfig):
         data_to_np_tensor(train_data).tofile('data_prep/train.csv', sep=';')
         data_to_np_tensor(test_data).tofile('data_prep/test.csv', sep=';')
         save_config(CONFIG_NAME)
-        
-        
-
 
 if __name__ == "__main__":
     main()
