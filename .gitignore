@@ -3,3 +3,4 @@ __pychache__/*
 src/__pychache__*
 */__pychache__/*
 *.pyc
+data_prep/*
