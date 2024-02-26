@@ -1,0 +1,14 @@
+stocks:
+- AAPL
+- GOOG
+features:
+- Open
+- High
+- Low
+- Close
+- Volume
+train_start: '2023-10-01'
+train_end: '2023-11-01'
+test_start: '2023-11-01'
+test_end: '2023-11-07'
+frequency: h
