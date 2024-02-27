@@ -13,7 +13,7 @@ CONFIG_NAME='preprocess_config'
 @hydra.main(config_path='configs', config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig):
     
-    df = read_data('data/all_tickers.csv')
+    df = read_data(cfg['data_path'])
     
     if cfg['stocks']=='best':
         with open('configs/best_stocks_nans_rate.yaml') as f:
@@ -36,8 +36,14 @@ def main(cfg: DictConfig):
     'Low': 'min',
     'Close': 'last',
     'Volume': "sum",
-}).reset_index()
+})
     
+    if cfg['pct_chnage']:
+        df_agg = df_agg.groupby('Stock').pct_change().reset_index()
+    else:
+        df_agg = df.reset_index()
+
+
     train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].sort_values().unique()[0]
     train_end = cfg['train_end'] if cfg['train_start'] else cfg['test_start']
     

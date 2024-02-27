@@ -1,4 +1,5 @@
 
+data_path: 'data/all_tickers.csv'
 stocks: 'best' # либо передать лист с тикерами
 
 features: ['Open', 'High', 'Low', 'Close', 'Volume']
