@@ -15,7 +15,7 @@ def main(cfg: DictConfig):
     
     df = read_data(cfg['data_path'])
     
-    if cfg['stocks']=='best':
+    if cfg['stocks'] == 'best':
         with open('configs/best_stocks_nans_rate.yaml') as f:
             stocks = yaml.load(f, Loader=yaml.FullLoader)
         stocks = list(stocks.keys())
@@ -40,11 +40,11 @@ def main(cfg: DictConfig):
     
     df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
 
-    train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].sort_values().unique()[0]
+    train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].min()
     train_end = cfg['train_end'] if cfg['train_start'] else cfg['test_start']
     
     test_start = cfg['test_start'] if cfg['train_start'] else cfg['train_end']
-    test_end =  cfg['test_end'] if cfg['train_start'] else df['Datetime'].sort_values().unique()[-1]
+    test_end =  cfg['test_end'] if cfg['train_start'] else df['Datetime'].max()
 
     if test_start == None and train_end == None:
         dates = pd.date_range(train_start, test_end)
@@ -71,6 +71,9 @@ def main(cfg: DictConfig):
         data_to_np_tensor(train_data).tofile('data_prep/train.csv', sep=';')
         data_to_np_tensor(test_data).tofile('data_prep/test.csv', sep=';')
         save_config(CONFIG_NAME)
+
+    return train_data, test_data
+
 
 if __name__ == "__main__":
     main()
