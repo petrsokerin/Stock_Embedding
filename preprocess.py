@@ -38,7 +38,7 @@ def main(cfg: DictConfig):
     'Volume': "sum",
 })
     
-    df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_chnage'] else df.reset_index()
+    df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
 
     train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].sort_values().unique()[0]
     train_end = cfg['train_end'] if cfg['train_start'] else cfg['test_start']
