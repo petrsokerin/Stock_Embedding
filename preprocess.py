@@ -30,16 +30,8 @@ def main(cfg: DictConfig):
 
     df = df.query("Stock in @stocks")
 
-    df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq=cfg['frequency'])]).agg({
-        'Open': 'first',
-        'High': 'max',
-        'Low': 'min',
-        'Close': 'last',
-        'Volume': "sum",
-    })
-
-    df_agg = df_agg.groupby('Stock').pct_change(
-    ).reset_index() if cfg['pct_change'] else df.reset_index()
+    df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq='h')],).agg( dict( cfg['features'] ) )
+    df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
 
     train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].min()
     train_end = cfg['train_end'] if cfg['train_start'] else cfg['test_start']
@@ -68,9 +60,9 @@ def main(cfg: DictConfig):
     )
 
     if cfg['save']:
-        df['Stock'].unique().tofile('data_prep/stocks.csv', sep=';')
-        data_to_np_tensor(train_data).tofile('data_prep/train.csv', sep=';')
-        data_to_np_tensor(test_data).tofile('data_prep/test.csv', sep=';')
+        df['Stock'].unique().tofile('data/stocks.csv', sep=';')
+        data_to_np_tensor(train_data).tofile('data/train.csv', sep=';')
+        data_to_np_tensor(test_data).tofile('data/test.csv', sep=';')
         save_config(CONFIG_NAME)
 
     return train_data, test_data

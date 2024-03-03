@@ -2,8 +2,14 @@
 data_path: 'data/all_tickers.csv'
 stocks: 'best' # либо передать лист с тикерами
 
-features: ['Open', 'High', 'Low', 'Close', 'Volume']
-pct_change: False
+features: 
+  Open: 'first'
+  High: 'max'
+  Low: 'min'
+  Close: 'last'
+  Volume: 'sum'
+
+pct_change: True
 
 train_start: '2023-10-01'
 train_end: '2023-11-01'

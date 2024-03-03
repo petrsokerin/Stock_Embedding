@@ -125,7 +125,7 @@ def data_to_np_tensor(data: Dict[str, pd.DataFrame]) -> np.ndarray:
     return res
 
 def save_config(config_name) -> None:
-    shutil.copyfile(f'configs/{config_name}.yaml', 'data_prep/'+config_name+'.yaml')
+    shutil.copyfile(f'configs/{config_name}.yaml', 'data/'+config_name+'.yaml')
 
     
     
