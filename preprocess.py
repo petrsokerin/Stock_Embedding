@@ -30,7 +30,7 @@ def main(cfg: DictConfig):
 
     df = df.query("Stock in @stocks")
 
-    df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq='h')],).agg( dict( cfg['features'] ) )
+    df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq=cfg['frequency'])],).agg( dict( cfg['features'] ) )
     df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
 
     train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].min()
