@@ -1,5 +1,6 @@
 import os
 import shutil
+import yaml
 
 from typing import NoReturn, List, Dict
 
@@ -124,8 +125,49 @@ def data_to_np_tensor(data: Dict[str, pd.DataFrame]) -> np.ndarray:
 
     return res
 
+
+def train_test_split(
+        df: pd.DataFrame,
+        train_start_date: str, 
+        train_end_date: str, 
+        test_start_date: str, 
+        test_end_date: str,
+        split:float,
+    ):
+    
+    train_start = train_start_date if train_start_date else df['Datetime'].min()
+    train_end = train_end_date if train_end_date else test_start_date
+
+    test_start = train_start_date if train_start_date else train_end_date
+    test_end = test_end_date if test_end_date else df['Datetime'].max()
+
+    if test_start == None and train_end == None:
+        dates = pd.date_range(train_start, test_end)
+        test_start = train_end = dates[round(split * len(dates))]
+    
+    return train_start, train_end, test_start, test_end
+
+
 def save_config(config_name) -> None:
     shutil.copyfile(f'configs/{config_name}.yaml', 'data/'+config_name+'.yaml')
+
+
+def stocks_df(path, stocks) -> pd.DataFrame:
+    df = read_data(path)
+
+    if stocks == 'best':
+        with open('configs/best_stocks_nans_rate.yaml') as f:
+            stocks = yaml.load(f, Loader=yaml.FullLoader)
+
+        stocks = list(stocks.keys())
+
+    elif stocks != None:
+        stocks = stocks
+
+    else:
+        stocks = df['Stock'].unique()
+
+    return df.query("Stock in @stocks")
 
     
     

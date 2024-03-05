@@ -6,42 +6,20 @@ import pandas as pd
 import numpy as np
 import yaml
 
-from src.data.preprocessing import read_data, preprocessing, data_to_np_tensor, save_config
+from src.data.preprocessing import read_data, preprocessing, data_to_np_tensor, save_config, stocks_df, train_test_split
 
 CONFIG_NAME = 'preprocess_config'
 
 
 @hydra.main(config_path='configs', config_name=CONFIG_NAME, version_base=None)
 def main(cfg: DictConfig):
-
-    df = read_data(cfg['data_path'])
-
-    if cfg['stocks'] == 'best':
-        with open('configs/best_stocks_nans_rate.yaml') as f:
-            stocks = yaml.load(f, Loader=yaml.FullLoader)
-
-        stocks = list(stocks.keys())
-
-    elif cfg['stocks'] != None:
-        stocks = cfg['stocks']
-
-    else:
-        stocks = df['Stock'].unique()
-
-    df = df.query("Stock in @stocks")
+    
+    df = stocks_df(cfg['data_path'], cfg['stocks'])
 
     df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq=cfg['frequency'])],).agg( dict( cfg['features'] ) )
     df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
 
-    train_start = cfg['train_start'] if cfg['train_start'] else df['Datetime'].min()
-    train_end = cfg['train_end'] if cfg['train_start'] else cfg['test_start']
-
-    test_start = cfg['test_start'] if cfg['train_start'] else cfg['train_end']
-    test_end = cfg['test_end'] if cfg['train_start'] else df['Datetime'].max()
-
-    if test_start == None and train_end == None:
-        dates = pd.date_range(train_start, test_end)
-        test_start = train_end = dates[round(cfg['split'] * len(dates))]
+    train_start, train_end, test_start, test_end = train_test_split(df_agg, cfg['train_start'], cfg['train_end'], cfg['test_start'], cfg['test_end'], cfg['split'])
 
     train_data = preprocessing(
         df_agg,
