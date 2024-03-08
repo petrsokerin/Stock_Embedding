@@ -220,7 +220,9 @@ def main(cfg: DictConfig):
         data_to_np_tensor(test_data).tofile('data/test.csv', sep=';')
         save_config(CONFIG_NAME)
 
-    train_data['Close'].to_csv('train.csv')
+    if cfg['save_df_for_llama']:
+        train_data['Close'].to_csv('train_llama.csv')
+        test_data['Close'].to_csv('test_llama.csv')
 
     return train_data, test_data
 

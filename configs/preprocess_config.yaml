@@ -22,3 +22,4 @@ split: 0.75 # используется, если не заданы train_end и 
 frequency: 'h' # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#offset-aliases
 
 save: True
+save_df_for_llama: True
