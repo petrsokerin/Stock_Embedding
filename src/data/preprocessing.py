@@ -6,11 +6,9 @@ from typing import NoReturn, List, Dict
 
 import pandas as pd
 import numpy as np
-from tqdm.notebook import tqdm
-
-# from src.models.ts2vec_src.ts2vec import TS2Vec
-
 import hydra
+
+from tqdm.notebook import tqdm
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
