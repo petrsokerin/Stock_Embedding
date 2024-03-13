@@ -1,11 +1,16 @@
 import os
+import shutil
+import yaml
+
 from typing import NoReturn, List, Dict
 
 import pandas as pd
 import numpy as np
-from tqdm.notebook import tqdm
+import hydra
 
-from src.models.ts2vec_src.ts2vec import TS2Vec
+from tqdm.notebook import tqdm
+from hydra.utils import instantiate
+from omegaconf import DictConfig
 
 
 COLUMNS_FINAM = ['Date', 'Time', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -86,7 +91,7 @@ def feature_preprocessing(
     return df_tickers
 
 
-def preprocessing(
+def preprocess_split(
         data: pd.DataFrame,
         value_columns: List[str]= 'Close',
         start_date: str = '2023-12-20',
@@ -122,6 +127,105 @@ def data_to_np_tensor(data: Dict[str, pd.DataFrame]) -> np.ndarray:
 
     return res
 
+
+def train_test_split(
+        df: pd.DataFrame,
+        train_start_date: str, 
+        train_end_date: str, 
+        test_start_date: str, 
+        test_end_date: str,
+        split:float,
+    ):
+    
+    train_start = train_start_date if train_start_date else df['Datetime'].min()
+    train_end = train_end_date if train_end_date else test_start_date
+
+    test_start = train_start_date if train_start_date else train_end_date
+    test_end = test_end_date if test_end_date else df['Datetime'].max()
+
+    if test_start == None and train_end == None:
+        dates = pd.date_range(train_start, test_end)
+        test_start = train_end = dates[round(split * len(dates))]
+    
+    return train_start, train_end, test_start, test_end
+
+
+def save_config(config_name) -> None:
+    shutil.copyfile(f'configs/{config_name}.yaml', 'data/'+config_name+'.yaml')
+
+
+def get_stocks(df: pd.DataFrame, stocks) -> List[str]:
+
+    if stocks == 'best':
+        with open('configs/best_stocks_nans_rate.yaml') as f:
+            stocks = yaml.load(f, Loader=yaml.FullLoader)
+
+        stocks = list(stocks.keys())
+
+    elif stocks != None:
+        stocks = stocks
+
+    else:
+        stocks = df['Stock'].unique()
+
+    return stocks
+
+
+
+CONFIG_NAME = 'preprocess_config'
+
+@hydra.main(config_path='../../configs', config_name=CONFIG_NAME, version_base=None)
+def main(cfg: DictConfig):
+    print('start preprocessing')
+    
+    df = read_data(cfg['data_path'])
+    stocks = get_stocks(df, cfg['stocks'])
+
+    print(stocks)
+
+    df_agg = df.set_index('Datetime').groupby(['Stock', pd.Grouper(freq=cfg['frequency'])],).agg(dict(cfg['features']))
+
+    df_agg = df_agg.groupby('Stock').pct_change().reset_index() if cfg['pct_change'] else df.reset_index()
+
+    train_start, train_end, test_start, test_end = train_test_split(
+        df_agg, 
+        cfg['train_start'], 
+        cfg['train_end'], 
+        cfg['test_start'], 
+        cfg['test_end'], 
+        cfg['split']
+    )
+
+    train_data = preprocess_split(
+        df_agg,
+        cfg['features'],
+        start_date = train_start,
+        end_date = train_end,
+        tickers_save = stocks,
+    )
+
+    test_data = preprocess_split(
+        df_agg,
+        cfg['features'],
+        start_date = test_start,
+        end_date = test_end,
+        tickers_save = stocks,
+    )
+
+    if cfg['save']:
+        df['Stock'].unique().tofile('data/stocks.csv', sep=';')
+        data_to_np_tensor(train_data).tofile('data/train.csv', sep=';')
+        data_to_np_tensor(test_data).tofile('data/test.csv', sep=';')
+        save_config(CONFIG_NAME)
+
+    if cfg['save_df_for_llama']:
+        train_data['Close'].to_csv('train_llama.csv')
+        test_data['Close'].to_csv('test_llama.csv')
+
+    return train_data, test_data
+
+if __name__ == "__main__":
+    main()
     
     
 
