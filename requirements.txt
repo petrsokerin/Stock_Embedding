@@ -4,6 +4,7 @@ matplotlib
 seaborn
 hydra
 xgboost
+yellowbrick
 scikit-learn
 torch==1.12.0
 pyyaml
