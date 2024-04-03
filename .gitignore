@@ -5,3 +5,4 @@ src/__pychache__*
 *.pyc
 data_prep/*
 *.DS_Store
+results/*
