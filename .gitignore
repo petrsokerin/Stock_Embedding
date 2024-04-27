@@ -6,3 +6,4 @@ src/__pychache__*
 data_prep/*
 *.DS_Store
 results/*
+*credentials*
