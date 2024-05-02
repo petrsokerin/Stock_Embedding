@@ -1,9 +1,7 @@
-data/*
+/data/*
 __pychache__/*
 src/__pychache__*
-*/__pychache__/*
+*/__pycache__/*
 *.pyc
 data_prep/*
 *.DS_Store
-results/*
-*credentials*
