@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import hydra
 
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
@@ -37,7 +37,8 @@ def collect_data_in_one_file(
 
     for file in tqdm(all_stock_files):
         try:
-            dataset = pd.read_csv(f'{tickers_path}/{file}', header=None, dtype=dtype)
+            tick_path = os.path.join(tickers_path, file)
+            dataset = pd.read_csv(tick_path, header=None, dtype=dtype)
             dataset.columns = COLUMNS_FINAM
 
             dataset['Datetime'] = dataset['Date'].astype('str') + '-' + dataset['Time'].astype('str')
@@ -47,7 +48,7 @@ def collect_data_in_one_file(
 
             df = pd.concat([df, dataset])
         except:
-            print(f"Can't read file {file}")
+                print(f"Can't read file {file}")
 
     df.to_csv(save_path)
 
@@ -225,6 +226,7 @@ def main(cfg: DictConfig):
     return train_data, test_data
 
 if __name__ == "__main__":
+    collect_data_in_one_file()
     main()
     
     

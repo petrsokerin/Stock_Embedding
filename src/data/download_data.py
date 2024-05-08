@@ -37,12 +37,16 @@ def get_tickers_sp500():
     tickers = sp500_df['Symbol'].tolist()
     return tickers
     
-def get_all_sp500_data():
+def get_all_sp500_data(path_save_folder):
+
+    if not os.path.exists(path_save_folder):
+        os.makedirs(path_save_folder)
+    
     sp500_tickers = get_tickers_sp500()
     failed_list = []
     for ticker in tqdm(sp500_tickers):
         try:
-            get(ticker, 'M1', f'data/ticker_data/{ticker}.csv')
+            get(ticker, 'M1', os.path.join(path_save_folder, f'{ticker}.csv'))
 
         except:
             print(f'Error witn ticker {ticker}')
@@ -51,4 +55,5 @@ def get_all_sp500_data():
     print(len(failed_list), failed_list)
 
 if __name__ == '__main__':
-    get_all_sp500_data()
+    path_save_folder = 'data/ticker_data'
+    get_all_sp500_data(path_save_folder)
