@@ -1,9 +1,12 @@
-/
+data/*
 __pychache__/*
 src/__pychache__*
-*/__pycache__/*
+*/__pychache__/*
 *.pyc
 data_prep/*
 *.DS_Store
-ts2vec/*
+results/*
+*credentials*
+outputs/*
+ts2v/*
 

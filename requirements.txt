@@ -6,8 +6,9 @@ hydra-core
 xgboost
 yellowbrick
 scikit-learn
-torch
+torch==1.12.0
 pyyaml
 lxml
 tqdm
 yfinance
+catboost
