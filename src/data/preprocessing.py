@@ -53,7 +53,7 @@ def collect_data_in_one_file(
 
 
 def read_data(path: str, clean: bool=True) -> pd.DataFrame:
-    df = pd.read_csv('Stock_Embedding/'+path, index_col = 0)
+    df = pd.read_csv(path, index_col = 0)
     df['Datetime'] = pd.to_datetime(df['Datetime'])
     
     df['Date'] = df['Datetime'].dt.date
