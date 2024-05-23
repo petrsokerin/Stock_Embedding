@@ -11,3 +11,4 @@ pyyaml
 lxml
 tqdm
 yfinance
+catboost

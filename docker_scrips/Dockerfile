@@ -45,8 +45,6 @@ ENV HOME=/home/$DOCKER_NAME
 RUN mkdir $HOME/.cache $HOME/.config \
  && chmod -R 777 $HOME
 
-# Set up the Conda environment
-
 COPY requirements.txt /app/requirements.txt
 ENV CONDA_AUTO_UPDATE_CONDA=false \
     PATH=$HOME/miniconda/bin:$PATH
