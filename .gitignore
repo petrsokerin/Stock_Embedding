@@ -8,3 +8,4 @@ data_prep/*
 results/*
 *credentials*
 outputs/*
+catboost_info/*
