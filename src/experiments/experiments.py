@@ -88,26 +88,26 @@ class AbcExperiment(ABC):
         self,
         y_test, 
         y_pred, 
-        metric_func=MAE,         
+        metric_func=MAPE,         
     ):
         if not self.use_pct_changes_labels:
             return metric_func(y_test, y_pred)
         
-        df_preds = y_test.reset_index().copy()
-        df_preds.columns = ['True']
+        df_preds = y_test.copy().to_frame(name='True').reset_index()
+        df_preds['True'] = df_preds['True'] + 1
         df_preds['Preds'] = y_pred + 1
-        #df_preds['True'] = y_test.reset_index(drop=True) + 1
         
-        starts = self.y_start_test.sort_values('Stock')['True'].values
+        starts = self.y_start_test.sort_values('Stock')['Close'].values
+        orig_close = df_preds.pivot(columns=['Stock'], index='Datetime', values='True').cumprod() * starts
+        preds_base = orig_close.shift(1)
+        preds_base.iloc[0] = starts
+        preds_changes = df_preds.pivot(columns=['Stock'], index='Datetime', values='Preds')
+        pred_close = preds_changes * preds_base
 
-        pred_close = df_preds.pivot(columns=['Stock'], index='Datetime', values=['Preds']).cumprod() * starts
-        orig_close = df_preds.pivot(columns=['Stock'], index='Datetime', values=['True']).cumprod() * starts
-
-        pred_close = pred_close['Preds'].reset_index().melt(id_vars=['Datetime'], value_name='Pred')
-        orig_close = orig_close['True'].reset_index().melt(id_vars=['Datetime'], value_name='True')
+        pred_close = pred_close.reset_index().melt(id_vars=['Datetime'], value_name='Pred')
+        orig_close = orig_close.reset_index().melt(id_vars=['Datetime'], value_name='True')
 
         metric_df = pd.merge(pred_close, orig_close, how='inner', on=['Stock', 'Datetime'])
-
         return metric_func(metric_df['True'], metric_df['Pred'])
 
     def pipeline(self, df, metric_func=MAPE):
@@ -132,9 +132,9 @@ class AbcExperiment(ABC):
 
 
 class LagModelExperint(AbcExperiment):
-    def __init__(self, lag_model, window_size=20, **kwargs):
+    def __init__(self, model, window_size=20, **kwargs):
         super().__init__(**kwargs)
-        self.model = lag_model
+        self.model = model
         self.window_size = window_size
 
     def add_shifts(self, data_for_shifts):
@@ -264,33 +264,79 @@ class SelfSupervisedExperint(AbcExperiment):
         X_train, y_train = X_emb.reset_index(drop=True), y_train.reset_index(drop=True)
         self.model.fit(X_train, y_train)
 
-    def predict(self, X_test, model=None):
+    def predict(self, X_test):
         X_emb = self.transform_emb_model(X_test)
         X_test = X_emb.reset_index(drop=True)
         return self.model.predict(X_test)
-        
 
-class FoundationZeroShort(AbcExperiment):
-    def __init__(self, model, **kwargs):
+
+class ConstPredExperiment(AbcExperiment):
+    def __init__(self, method='last', **kwargs):
         super().__init__(**kwargs)
-        self.model = model
+        self.method = method
 
     def prepare_data(self, df):
+        X = df[[self.label_name]].copy()
+        y = df[self.label_name]
 
-        X_test = df \
+        if self.use_pct_changes_data:
+            X = self.stock_pct_change(X)
+
+        if self.use_pct_changes_labels:
+            self.get_y_start_test(y)
+            y = self.stock_pct_change(y)
+
+        X_test = X \
             .reset_index() \
             .pivot(index='Datetime', columns='Stock') \
             .reset_index()
         X_test.columns = X_test.columns.droplevel()
         X_test.columns = ['Datetime'] + X_test.columns.tolist()[1:]
-        _, y_test = self.train_test_split(df[[self.label_name]])
 
+        _, y_test = self.train_test_split_dt(y)
+    
         return X_test, y_test
+    
+    def fit_model(*args, **kwargs):
+        pass
 
     def predict(self, X_test):
-        prediction_length = 1
+        date_array = X_test['Datetime'].map(datetime.datetime.date)
+        test_indexes = X_test[
+            (date_array >= pd.Timestamp(self.test_start).date()) & 
+            (date_array < pd.Timestamp(self.test_end).date())
+        ].index
+        
+        X_test = X_test.drop(columns=['Datetime'])
 
-        test_indexes = X_test[X_test['Datetime'] > self.test_start].index
+        seq_len_test = len(test_indexes)
+        n_stocks = X_test.shape[1]
+        y_pred_all = np.zeros((seq_len_test, n_stocks))
+
+        for i, test_idx in enumerate(test_indexes):
+            y_pred_all[i] = X_test.iloc[test_idx - 1].values
+        
+        return y_pred_all.T.reshape(-1, 1)
+    
+    def pipeline(self, df, metric_func=MAPE):
+        X_test, y_test = self.prepare_data(df)
+        preds = self.predict(X_test)
+        results = self.estimate_results(y_test, preds, metric_func)
+        return results, preds    
+
+
+class FoundationZeroShort(ConstPredExperiment):
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self.model = model
+
+    def predict(self, X_test):
+        date_array = X_test['Datetime'].map(datetime.datetime.date)
+        test_indexes = X_test[
+            (date_array >= pd.Timestamp(self.test_start).date()) & 
+            (date_array < pd.Timestamp(self.test_end).date())
+        ].index
+        
         X_chron_stocks = X_test.drop(columns=['Datetime'])
 
         seq_len_test = len(test_indexes)
@@ -303,7 +349,7 @@ class FoundationZeroShort(AbcExperiment):
             
             forecast = self.model.predict(
                 chron_input,
-                prediction_length,
+                prediction_length=1,
                 num_samples=50,
                 temperature=1.0,
                 top_k=50,
@@ -312,10 +358,5 @@ class FoundationZeroShort(AbcExperiment):
 
             pred = np.median(forecast.numpy(), axis=1).flatten()
             y_pred_all[i] = pred
-        return y_pred_all.reshape(-1, 1)
-    
-    def pipeline(self, df, metric_func=MAPE):
-        X_test, y_test = self.prepare_data(df)
-        preds = self.predict(X_test, y_test)
-        results = self.estimate_results(y_test, preds, metric_func)
-        return results, preds
+        
+        return y_pred_all.T.reshape(-1, 1)

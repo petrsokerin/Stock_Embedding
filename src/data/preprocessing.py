@@ -82,12 +82,12 @@ def feature_preprocessing(
     if len(tickers_save) == 0:
         nan_df = df_tickers.isna().astype(int).mean().to_frame(name='nan_ratio')
         tickers_save = nan_df[nan_df['nan_ratio'] < nan_thrs].index 
-        print('N_saved_stocks ', len(tickers_save))
+        #print('N_saved_stocks ', len(tickers_save))
 
     df_tickers = df_tickers[tickers_save]
 
     df_tickers = df_tickers.interpolate(method='linear', limit_direction='both')
-    print('NAN in data ', df_tickers.isna().sum().sum())
+    #print('NAN in data ', df_tickers.isna().sum().sum())
 
     return df_tickers
 
