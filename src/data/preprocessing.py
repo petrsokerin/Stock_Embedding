@@ -101,32 +101,33 @@ def preprocess_split(
         tickers_save: List[str] = [],
 ) -> Dict[str, pd.DataFrame]:
     
+    tickers_save_filter = tickers_save
+    if len(tickers_save) == 0:
+        tickers_save_filter = data['Stock'].unique()
+    
     mask_lower = data['Datetime'].dt.date >= pd.Timestamp(start_date).date()
     mask_upper = data['Datetime'].dt.date < pd.Timestamp(end_date).date()
-    mask_tickers = data['Stock'].isin(tickers_save)
+    mask_tickers = data['Stock'].isin(tickers_save_filter)
     data = data[(mask_lower) & (mask_upper) & (mask_tickers)]
     
-    res = dict()
+    res = pd.DataFrame()
 
     for value_col in value_columns:
-        res[value_col] = feature_preprocessing(data, value_col, nan_thrs, tickers_save)
-
+        new_df = feature_preprocessing(data, value_col, nan_thrs, tickers_save)
+        new_df['Feature'] = value_col
+        res = pd.concat([res, new_df])  
+    
+    stocks = res.columns.tolist()[:-1]
+    res = pd.melt(res.reset_index(), id_vars=['Feature', 'Datetime'], value_vars=stocks)
+    res = pd.pivot(res, columns='Feature', index=['Stock', 'Datetime'], values='value')
     return res
 
 
-def data_to_np_tensor(data: Dict[str, pd.DataFrame]) -> np.ndarray:
-    features_names = list(data.keys())
-    features_one = features_names[0]
-
-    n_objects = data[features_one].shape[1]
-    seq_len = data[features_one].shape[0]
-    n_features = len(data)
-
-    res = np.zeros((n_objects, seq_len, n_features))
-    for i, features in enumerate(data.values()):
-        res[:, :, i] = features.values.T
-
-    return res
+def data_to_np_tensor(data: pd.DataFrame) -> np.ndarray:
+    n_objects = data.index.get_level_values('Stock').nunique()
+    n_timestamps = data.index.get_level_values('Datetime').nunique()
+    n_features = data.shape[1]
+    return data.values.reshape(n_objects, n_timestamps, n_features)
 
 
 def train_test_split(
