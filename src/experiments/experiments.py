@@ -21,6 +21,7 @@ class AbcExperiment(ABC):
         label_name: str = 'Close',
         use_pct_changes_data: bool = False,
         use_pct_changes_labels: bool = False,
+        task: str = 'regression',
     ):
         self.train_start = train_start
         self.train_end = train_end
@@ -29,6 +30,10 @@ class AbcExperiment(ABC):
         self.label_name = label_name
         self.use_pct_changes_data = use_pct_changes_data
         self.use_pct_changes_labels = use_pct_changes_labels
+
+        if task not in ['regression', 'classification']:
+            raise ValueError('Task should be regression or classification')
+        self.task = task
 
     @staticmethod
     def stock_pct_change(data):
@@ -83,16 +88,8 @@ class AbcExperiment(ABC):
         X = df.drop(self.label_name, axis=1)
         y = df[self.label_name]
         return X, y
-
-    def estimate_results(
-        self,
-        y_test, 
-        y_pred, 
-        metric_func=MAPE,         
-    ):
-        if not self.use_pct_changes_labels:
-            return metric_func(y_test, y_pred)
-        
+    
+    def estimate_pct_change(self, y_test, y_pred):
         df_preds = y_test.copy().to_frame(name='True').reset_index()
         df_preds['True'] = df_preds['True'] + 1
         df_preds['Preds'] = y_pred + 1
@@ -108,9 +105,28 @@ class AbcExperiment(ABC):
         orig_close = orig_close.reset_index().melt(id_vars=['Datetime'], value_name='True')
 
         metric_df = pd.merge(pred_close, orig_close, how='inner', on=['Stock', 'Datetime'])
-        return metric_func(metric_df['True'], metric_df['Pred'])
+        y_test, y_pred =  metric_df['True'], metric_df['Pred']
+        return y_test, y_pred
 
-    def pipeline(self, df, metric_func=MAPE):
+    def estimate_results(
+        self,
+        y_test, 
+        y_pred,
+        y_pred_proba=None, 
+        metric_dict={'MAPE': MAPE},         
+    ):
+        if self.use_pct_changes_labels and self.task == 'regression':
+             y_test, y_pred = self.estimate_pct_change(y_test, y_pred)
+        
+        res = dict()
+        for metric_name, metric_fun in metric_dict.items():
+            if 'auc' in metric_name.lower() or 'roc' in metric_name.lower():
+                res[metric_name] = metric_fun(y_test, y_pred_proba)
+            else:
+                res[metric_name] = metric_fun(y_test, y_pred)
+        return res
+
+    def pipeline(self, df, metric_dict={'MAPE': MAPE}):
         X_train, X_test, y_train, y_test = self.prepare_data(df)
 
         assert len(X_train) == len(y_train)
@@ -127,7 +143,14 @@ class AbcExperiment(ABC):
 
         self.fit_model(X_train, y_train)
         preds = self.predict(X_test)
-        results = self.estimate_results(y_test, preds, metric_func)
+
+        if self.task == 'classification':
+            preds_proba = preds
+            preds = (np.sign(preds_proba - 0.5)).astype(int)
+            results = self.estimate_results(y_test, preds, preds_proba, metric_dict=metric_dict)
+        else: 
+            results = self.estimate_results(y_test, preds, metric_dict=metric_dict)
+
         return results, preds
 
 
@@ -143,7 +166,9 @@ class LagModelExperint(AbcExperiment):
         if self.use_pct_changes_labels:
             self.get_y_start_test(y)
             y = self.stock_pct_change(y)
-
+            if self.task == 'classification':
+                y[self.label_name] = ((np.sign(y[self.label_name]) + 1) // 2).astype(int)
+    
         X = data_for_shifts.copy()
 
         if self.use_pct_changes_data:
@@ -168,12 +193,17 @@ class LagModelExperint(AbcExperiment):
         if model:
             self.model = model
         X, y = X_train.reset_index(drop=True), y_train.reset_index(drop=True)
-        self.model.fit(X, y)
+        if 'CatBoost' in self.model.__class__.__name__ :
+            self.model.fit(X, y, verbose=False)
+        else:
+            self.model.fit(X, y)
 
     def predict(self, X_test):
         X_test.reset_index(drop=True)
-        return self.model.predict(X_test)
-    
+        if self.task == 'regression':
+            return self.model.predict(X_test)
+        else: 
+            return self.model.predict_proba(X_test)[:, 1]
 
 class SelfSupervisedExperint(AbcExperiment):
     def __init__(self, model, emb_model, **kwargs):
@@ -189,9 +219,11 @@ class SelfSupervisedExperint(AbcExperiment):
 
         y = df[[self.label_name]]
 
-        if self.use_pct_changes_labels:
+        if self.use_pct_changes_labels or self.task == 'classification':
             self.get_y_start_test(y)
             y = self.stock_pct_change(y)
+            if self.task == 'classification':
+                y[self.label_name] = ((np.sign(y[self.label_name]) + 1) // 2).astype(int)
     
         Xy = X.drop(self.label_name, axis=1).join(y, how='inner')
         X, y = self.data_labels_split(Xy)
@@ -262,12 +294,19 @@ class SelfSupervisedExperint(AbcExperiment):
 
         X_emb = self.transform_emb_model(X_train)
         X_train, y_train = X_emb.reset_index(drop=True), y_train.reset_index(drop=True)
-        self.model.fit(X_train, y_train)
+
+        if 'CatBoost' in self.model.__class__.__name__ :
+            self.model.fit(X_train, y_train, verbose=False)
+        else:
+            self.model.fit(X_train, y_train)
 
     def predict(self, X_test):
         X_emb = self.transform_emb_model(X_test)
         X_test = X_emb.reset_index(drop=True)
-        return self.model.predict(X_test)
+        if self.task == 'regression':
+            return self.model.predict(X_test)
+        else: 
+            return self.model.predict_proba(X_test)[:, 1]
 
 
 class ConstPredExperiment(AbcExperiment):
@@ -282,9 +321,11 @@ class ConstPredExperiment(AbcExperiment):
         if self.use_pct_changes_data:
             X = self.stock_pct_change(X)
 
-        if self.use_pct_changes_labels:
+        if self.use_pct_changes_labels or self.task == 'classification':
             self.get_y_start_test(y)
             y = self.stock_pct_change(y)
+            if self.task == 'classification':
+                y = ((np.sign(y) + 1) // 2).astype(int)
 
         X_test = X \
             .reset_index() \
@@ -314,14 +355,18 @@ class ConstPredExperiment(AbcExperiment):
         y_pred_all = np.zeros((seq_len_test, n_stocks))
 
         for i, test_idx in enumerate(test_indexes):
-            y_pred_all[i] = X_test.iloc[test_idx - 1].values
+            regression_pred = X_test.iloc[test_idx - 1].values
+            if self.task == 'regression':
+                y_pred_all[i] = regression_pred
+            else:
+                y_pred_all[i] = ((np.sign(regression_pred) + 1) // 2).astype(int)
         
         return y_pred_all.T.reshape(-1, 1)
     
-    def pipeline(self, df, metric_func=MAPE):
+    def pipeline(self, df, metric_dict={'MAPE': MAPE}):
         X_test, y_test = self.prepare_data(df)
         preds = self.predict(X_test)
-        results = self.estimate_results(y_test, preds, metric_func)
+        results = self.estimate_results(y_test, preds, preds, metric_dict=metric_dict)
         return results, preds    
 
 
@@ -356,7 +401,10 @@ class FoundationZeroShort(ConstPredExperiment):
                 top_p=1.0,
             ) 
 
-            pred = np.median(forecast.numpy(), axis=1).flatten()
-            y_pred_all[i] = pred
+            regression_pred = np.median(forecast.numpy(), axis=1).flatten()
+            if self.task == 'regression':
+                y_pred_all[i] = regression_pred
+            else:
+                y_pred_all[i] = ((np.sign(regression_pred) + 1) // 2).astype(int)
         
         return y_pred_all.T.reshape(-1, 1)
