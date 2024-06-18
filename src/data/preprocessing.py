@@ -230,12 +230,3 @@ if __name__ == "__main__":
     collect_data_in_one_file()
     main()
     
-    
-
-
-
-
-
-
-
-
